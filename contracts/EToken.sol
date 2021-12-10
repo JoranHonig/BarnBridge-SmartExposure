@@ -28,7 +28,7 @@ contract EToken is ControllerMixin, ERC20, IEToken {
         ePool = _ePool;
     }
 
-        /**
+    /**
      * @notice Returns the address of the current Aggregator which provides the exchange rate between TokenA and TokenB
      * @return Address of aggregator
      */
@@ -42,6 +42,8 @@ contract EToken is ControllerMixin, ERC20, IEToken {
      * @param _controller Address of the new Controller
      * @return True on success
      */
+    /// #if_succeeds getController() == _controller;
+    /// #if_succeeds msg.sender == _controller.dao;
     function setController(address _controller) external override onlyDao("EToken: not dao") returns (bool) {
         _setController(_controller);
         return true;
@@ -54,6 +56,7 @@ contract EToken is ControllerMixin, ERC20, IEToken {
      * @param amount Amount to mint
      * @return True on Success
      */
+    /// #if_succeeds old(balanceOf(account)) + amount == balanceOf(account);
     function mint(address account, uint256 amount) external override onlyEPool returns (bool) {
         _mint(account, amount);
         return true;
@@ -66,6 +69,7 @@ contract EToken is ControllerMixin, ERC20, IEToken {
      * @param amount Amount to burn
      * @return True on Success
      */
+    /// #if_succeeds old(balanceOf(account)) - amount == balanceOf(account);
     function burn(address account, uint256 amount) external override onlyEPool returns (bool) {
         _burn(account, amount);
         return true;
@@ -78,6 +82,9 @@ contract EToken is ControllerMixin, ERC20, IEToken {
      * @param amount Amount to recover
      * @return True on success
      */
+    /// #if_succeeds old(balanceOf(this)) - amount = balanceOf(this);
+    /// #if_succeeds old(balanceOf(msg.sender)) + amount == balanceOf(msg.sender);
+    /// #if_succeeds msg.sender == _controller.dao;
     function recover(IERC20 token, uint256 amount) external override onlyDao("EToken: not dao") returns (bool) {
         token.safeTransfer(msg.sender, amount);
         emit RecoveredToken(address(token), amount);

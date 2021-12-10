@@ -7,14 +7,21 @@ import "./interfaces/IEPoolHelper.sol";
 import "./interfaces/IEPool.sol";
 import "./utils/ControllerMixin.sol";
 
+///#define daoOrGuardian() bool = msg.sender ==  controller.dao() || msg.sender ==  controller.guardian();
 contract KeeperNetworkAdapter is ControllerMixin, IKeeperNetworkAdapter {
 
+    /// #if_updated msg.sig == bytes(0x00000000) || daoOrGuardian();
     IEPool public override ePool;
+    /// #if_updated msg.sig == bytes(0x00000000) || daoOrGuardian();
     IEPoolHelper public override ePoolHelper;
+    /// #if_updated msg.sig == bytes(0x00000000) || daoOrGuardian();
     IEPoolPeriphery public override ePoolPeriphery;
 
+    /// #if_updated msg.sig == bytes(0x00000000) || daoOrGuardian();
     uint256 public override keeperRebalanceMinRDiv = ~uint256(0);
+    /// #if_updated msg.sig == bytes(0x00000000) || daoOrGuardian();
     uint256 public override keeperRebalanceInterval;
+    /// #if_updated msg.sig == bytes(0x00000000) || daoOrGuardian();
     uint256 public override lastKeeperRebalance;
 
     event SetEPool(address indexed ePool);

@@ -8,6 +8,7 @@ library Math {
     }
 
     // babylonian method (https://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Babylonian_method)
+    ///#if_succeeds {:msg "squared result is input"} z * z == y;
     function sqrt(uint256 y) internal pure returns (uint256 z) {
         if (y > 3) {
             z = y;

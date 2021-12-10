@@ -6,11 +6,15 @@ import "./interfaces/IController.sol";
 
 contract Controller is IController {
     // Governance
+    ///#if_updated msg.sig == bytes(0x00000000) || msg.sender == dao;
     address public override dao;
+    ///#if_updated msg.sig == bytes(0x00000000) || msg.sender == dao;
     address public override guardian;
+    ///#if_updated msg.sig == bytes(0x00000000) || msg.sender == dao;
     address public override feesOwner;
 
     // EPools
+    ///#if_updated msg.sig == bytes(0x00000000) || msg.sender == dao  || msg.sender == guardian;
     bool public override pausedIssuance;
 
     event SetDao(address dao);

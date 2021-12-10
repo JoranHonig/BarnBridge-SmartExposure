@@ -19,6 +19,7 @@ import "./EPoolLibrary.sol";
 
 import "hardhat/console.sol";
 
+///#invariant forall (address epool in ePools) ePools[epool] ==> EPool(epool).tokenA.allowance; 
 contract EPoolPeriphery is ControllerMixin, IEPoolPeriphery {
     using SafeERC20 for IERC20;
     using TokenUtils for IERC20;
@@ -31,6 +32,7 @@ contract EPoolPeriphery is ControllerMixin, IEPoolPeriphery {
     // supported EPools by the periphery
     mapping(address => bool) public override ePools;
     // max. allowed slippage between EPool oracle and uniswap when executing a flash swap
+    /// #if_updated msg.sender == controller.dao() || controller.guardian() || msg.sig == bytes4(0x00000000);
     uint256 public override maxFlashSwapSlippage;
 
     event IssuedEToken(
@@ -77,6 +79,8 @@ contract EPoolPeriphery is ControllerMixin, IEPoolPeriphery {
      * @param _controller Address of the new Controller
      * @return True on success
      */
+    /// #if_succeeds getController() == _controller;
+    /// #if_succeeds msg.sender == _controller.dao();
     function setController(address _controller) external override onlyDao("EPoolPeriphery: not dao") returns (bool) {
         _setController(_controller);
         return true;
@@ -89,6 +93,7 @@ contract EPoolPeriphery is ControllerMixin, IEPoolPeriphery {
      * @param approval Boolean on whether approval for EPool should be given or revoked
      * @return True on success
      */
+    /// #if_succeeds msg.sender == controller.dao() || msg.sender == controller.guardian();
     function setEPoolApproval(
         IEPool ePool,
         bool approval
@@ -113,6 +118,8 @@ contract EPoolPeriphery is ControllerMixin, IEPoolPeriphery {
      * @param _maxFlashSwapSlippage Max. flash swap slippage
      * @return True on success
      */
+    /// #if_succeeds maxFlashSwapSlippage == _maxFlashSwapSlippage;
+    /// #if_succeeds msg.sender == controller.dao() || msg.sender == controller.guardian();
     function setMaxFlashSwapSlippage(
         uint256 _maxFlashSwapSlippage
     ) external override onlyDaoOrGuardian("EPoolPeriphery: not dao or guardian") returns (bool) {
@@ -132,6 +139,9 @@ contract EPoolPeriphery is ControllerMixin, IEPoolPeriphery {
      * @param deadline Timestamp at which tx expires
      * @return True on success
      */
+    /// #if_succeeds old(ePool.tokenA().balanceOf(msg.sender)) - ePool.tokenA().balanceOf(msg.sender) <= maxInputAmountA;
+    /// #if_succeeds let token := ERC20(eToken) in old(token.balanceOf(msg.sender)) + amount == token.balanceOf(msg.sender);
+    /// #if_succeeds deadline <= block.timestamp;
     function issueForMaxTokenA(
         IEPool ePool,
         address eToken,
@@ -177,6 +187,11 @@ contract EPoolPeriphery is ControllerMixin, IEPoolPeriphery {
      * @param deadline Timestamp at which tx expires
      * @return True on success
      */
+    /// #if_succeeds old(ePool.tokenA().balanceOf(msg.sender)) - ePool.tokenA().balanceOf(msg.sender) 
+    ///     <= maxInputAmountB;
+    /// #if_succeeds let token := ERC20(eToken) in old(token.balanceOf(msg.sender)) + amount 
+    ///     == token.balanceOf(msg.sender);
+    /// #if_succeeds deadline <= block.timestamp;
     function issueForMaxTokenB(
         IEPool ePool,
         address eToken,
@@ -221,6 +236,11 @@ contract EPoolPeriphery is ControllerMixin, IEPoolPeriphery {
      * @param deadline Timestamp at which tx expires
      * @return True on success
      */
+    /// #if_succeeds ePool.tokenA().balanceOf(msg.sender) - old(ePool.tokenA().balanceOf(msg.sender)) 
+    ///     >= minOutputA;
+    /// #if_succeeds let token := ERC20(eToken) in old(token.balanceOf(msg.sender)) - amount 
+    ///     == token.balanceOf(msg.sender);
+    /// #if_succeeds deadline <= block.timestamp;
     function redeemForMinTokenA(
         IEPool ePool,
         address eToken,
@@ -259,6 +279,11 @@ contract EPoolPeriphery is ControllerMixin, IEPoolPeriphery {
      * @param deadline Timestamp at which tx expires
      * @return True on success
      */
+    /// #if_succeeds ePool.tokenA().balanceOf(msg.sender) - old(ePool.tokenA().balanceOf(msg.sender)) 
+    ///     >= minOutputB;
+    /// #if_succeeds let token := ERC20(eToken) in old(token.balanceOf(msg.sender)) - amount 
+    ///     == token.balanceOf(msg.sender);
+    /// #if_succeeds deadline <= block.timestamp;
     function redeemForMinTokenB(
         IEPool ePool,
         address eToken,
@@ -295,6 +320,25 @@ contract EPoolPeriphery is ControllerMixin, IEPoolPeriphery {
      * @param fracDelta Fraction of the delta to rebalance (1e18 for rebalancing the entire delta)
      * @return True on success
      */
+    /// #if_succeeds {:msg "The pool was unbalanced before this function can be called succesfully"} 
+    /// let (oldDeltaA, oldDeltaB, _) := old(EPoolLibrary.delta(
+    ///     ePool.getTranches(), ePool.getRate(), ePool.sFactorA(), ePool.sFactorB()
+    /// )) in oldDeltaA >= 0 || oldDeltaB >=0;
+    /// #if_succeeds {:msg "The pool is more in balance after this function is called"} 
+    /// let (oldDeltaA, oldDeltaB, _) := old(EPoolLibrary.delta(
+    ///     ePool.getTranches(), ePool.getRate(), ePool.sFactorA(), ePool.sFactorB()
+    /// )) in    
+    /// let (deltaA, deltaB, _) := EPoolLibrary.delta(
+    ///     ePool.getTranches(), ePool.getRate(), ePool.sFactorA(), ePool.sFactorB()
+    /// ) in
+    ///  deltaA <= oldDeltaA && deltaB <= oldDeltaB;
+    /// #if_succeeds {:msg "The value of the pool is invariant through rebalancing"} 
+    /// let oldABalance = old(ePool.tokenA().balanceOf(this)) in
+    /// let oldBBalance = old(ePool.tokenB().balanceOf(this)) in
+    /// let aBalance = ePool.tokenA().balanceOf(this) in
+    /// let bBalance = ePool.tokenB().balanceOf(this) in
+    /// let rate = ePool.getRate() in
+    /// aBalance * rate + bBalance / rate == oldABalance * rate + oldBBalance / rate;
     function rebalanceWithFlashSwap(
         IEPool ePool,
         uint256 fracDelta
@@ -372,6 +416,8 @@ contract EPoolPeriphery is ControllerMixin, IEPoolPeriphery {
      * @param amount Amount to recover
      * @return True on success
      */
+    ///#if_succeeds old(token.balanceOf(msg.sender)) + amount == token.balanceOf(msg.sender);
+    ///#if_succeeds msg.sender == controller.dao();
     function recover(IERC20 token, uint256 amount) external override onlyDao("EPool: not dao") returns (bool) {
         token.safeTransfer(msg.sender, amount);
         emit RecoveredToken(address(token), amount);

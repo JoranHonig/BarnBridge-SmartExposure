@@ -25,6 +25,8 @@ contract ETokenFactory is ControllerMixin, IETokenFactory {
      * @param _controller Address of the new Controller
      * @return True on success
      */
+    /// #if_succeeds getController() == _controller;
+    /// #if_succeeds msg.sender == _controller.dao;
     function setController(address _controller) external override onlyDao("ETokenFactory: not dao") returns (bool) {
         _setController(_controller);
         return true;
